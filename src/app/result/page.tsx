@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import EvidenceResults from '@/components/results/EvidenceResults';
-import { ScanLine } from 'lucide-react';
+import LatticeLoader from '@/components/reactbits/LatticeLoader/LatticeLoader';
 
 export const metadata = {
   title: 'Evidence Audit Scorecard | MediVerify',
@@ -12,12 +12,24 @@ export default function ResultPage() {
     <Suspense
       fallback={
         <div className="flex min-h-[60vh] flex-col items-center justify-center p-6 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500/20 border border-teal-500/40 text-teal-400 animate-pulse">
-            <ScanLine className="h-7 w-7" />
+          <div className="p-8 rounded-3xl border border-slate-200 bg-white/95 shadow-xl flex flex-col items-center max-w-sm w-full backdrop-blur-md">
+            <LatticeLoader
+              status="working"
+              label="Resolving Audit Dossier"
+              pattern="orbit"
+              grid={3}
+              shape="round"
+              color="#0D9488"
+              cellSize={8}
+              gap={3}
+              fontSize={15}
+              step={85}
+              showTimer
+            />
+            <p className="mt-4 text-xs font-mono text-teal-700 bg-teal-50 px-3 py-1 rounded-lg border border-teal-200">
+              Cross-checking AMMPS &amp; serialization ledger...
+            </p>
           </div>
-          <p className="mt-4 text-sm font-mono text-teal-300">
-            Resolving multi-signal audit dossier...
-          </p>
         </div>
       }
     >

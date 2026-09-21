@@ -12,10 +12,10 @@ export default function ReportPage() {
     <Suspense
       fallback={
         <div className="flex min-h-[60vh] flex-col items-center justify-center p-6 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 animate-pulse">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 animate-pulse shadow-sm">
             <ShieldAlert className="h-7 w-7" />
           </div>
-          <p className="mt-4 text-sm font-mono text-amber-300">
+          <p className="mt-4 text-sm font-mono text-amber-800 font-medium">
             Initializing incident dispatch form...
           </p>
         </div>
