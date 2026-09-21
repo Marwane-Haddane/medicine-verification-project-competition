@@ -17,19 +17,19 @@ import {
 
 export default function ProblemSection() {
   return (
-    <section className="relative py-20 sm:py-28">
+    <section id="technology" className="relative py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="mx-auto max-w-3xl text-center space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-950/30 px-3 py-1 text-xs font-semibold text-amber-300">
             <AlertOctagon className="h-3.5 w-3.5" />
-            <span>The Counterfeit Vulnerability</span>
+            <span>Multi-Layer Defensive Architecture</span>
           </div>
           <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             A barcode alone <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-amber-300 to-teal-300">isn't enough.</span>
           </h2>
           <p className="text-base text-slate-300 sm:text-lg leading-relaxed">
-            Standard 1D barcodes can be photocopied or printed onto fake packaging in seconds. MediVerify employs a 4-layer defensive verification pipeline to guarantee pharmaceutical authenticity.
+            Standard 1D barcodes can be photocopied or printed onto fake packaging in seconds. MediVerify employs a 4-layer multi-signal verification pipeline to guarantee pharmaceutical authenticity.
           </p>
         </div>
 
@@ -45,7 +45,7 @@ export default function ProblemSection() {
               </div>
               <div>
                 <span className="text-[11px] font-mono text-teal-400 font-bold uppercase tracking-wider">
-                  LAYER 01 • DETERMINISTIC CATALOG
+                  LAYER 01 • WHAT PRODUCT THIS CODE REPRESENTS
                 </span>
                 <h3 className="text-xl font-bold text-white">Product Identification</h3>
               </div>
@@ -72,7 +72,7 @@ export default function ProblemSection() {
             </div>
           </div>
 
-          {/* Tile 2: Serialization Verification (5 cols) */}
+          {/* Tile 2: Package Verification (5 cols) */}
           <div className="md:col-span-5 rounded-3xl border border-teal-500/20 bg-gradient-to-br from-[#0c1f38] via-[#09172c] to-[#071120] p-6 sm:p-8 relative overflow-hidden group hover:border-teal-500/40 transition-all">
             <div className="hud-corner-tr" />
             <div className="hud-corner-bl" />
@@ -82,9 +82,9 @@ export default function ProblemSection() {
               </div>
               <div>
                 <span className="text-[11px] font-mono text-cyan-400 font-bold uppercase tracking-wider">
-                  LAYER 02 • GS1 AI (21)
+                  LAYER 02 • DOES SERIAL &amp; BATCH EXIST IN VALID RECORDS?
                 </span>
-                <h3 className="text-xl font-bold text-white">Serialization Registry</h3>
+                <h3 className="text-xl font-bold text-white">Package Verification</h3>
               </div>
             </div>
 
@@ -104,7 +104,7 @@ export default function ProblemSection() {
             </div>
           </div>
 
-          {/* Tile 3: AI Physical Packaging Inspection (5 cols) */}
+          {/* Tile 3: AI Physical Inspection (5 cols) */}
           <div className="md:col-span-5 rounded-3xl border border-teal-500/20 bg-gradient-to-br from-[#0c1f38] via-[#09172c] to-[#071120] p-6 sm:p-8 relative overflow-hidden group hover:border-teal-500/40 transition-all">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/20 border border-teal-500/40 text-teal-400">
@@ -112,9 +112,9 @@ export default function ProblemSection() {
               </div>
               <div>
                 <span className="text-[11px] font-mono text-teal-400 font-bold uppercase tracking-wider">
-                  LAYER 03 • COMPUTER VISION
+                  LAYER 03 • DOES LABEL TEXT MATCH DATABASE METADATA?
                 </span>
-                <h3 className="text-xl font-bold text-white">AI Packaging Inspection</h3>
+                <h3 className="text-xl font-bold text-white">AI Physical Inspection</h3>
               </div>
             </div>
 
@@ -128,7 +128,7 @@ export default function ProblemSection() {
             </div>
           </div>
 
-          {/* Tile 4: Anomaly Risk Scorecard & Audit (7 cols) */}
+          {/* Tile 4: Anomaly Risk Scorecard (7 cols) */}
           <div className="md:col-span-7 rounded-3xl border border-teal-500/20 bg-gradient-to-br from-[#0c1f38] via-[#09172c] to-[#071120] p-6 sm:p-8 relative overflow-hidden group hover:border-teal-500/40 transition-all">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400">
@@ -136,9 +136,9 @@ export default function ProblemSection() {
               </div>
               <div>
                 <span className="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-wider">
-                  LAYER 04 • EVIDENCE FUSION
+                  LAYER 04 • DETECTING IRREGULARITIES TRANSPARENTLY
                 </span>
-                <h3 className="text-xl font-bold text-white">Transparent Risk Scorecard</h3>
+                <h3 className="text-xl font-bold text-white">Anomaly Risk Scorecard</h3>
               </div>
             </div>
 

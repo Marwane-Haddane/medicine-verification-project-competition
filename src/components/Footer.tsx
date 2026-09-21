@@ -4,7 +4,7 @@ import { ShieldCheck, Lock, Activity, ExternalLink, AlertTriangle, FileText, Hea
 
 export default function Footer() {
   return (
-    <footer className="mt-24 border-t border-slate-800/80 bg-[#070e1b]/90 text-slate-400 backdrop-blur-xl relative z-10">
+    <footer id="about" className="mt-24 border-t border-slate-800/80 bg-[#070e1b]/90 text-slate-400 backdrop-blur-xl relative z-10">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           {/* Col 1: Brand & Integrity */}

@@ -14,7 +14,6 @@ import {
   ShieldCheck, 
   FileText, 
   Copy, 
-  Share2, 
   ExternalLink,
   Cpu,
   Layers,
@@ -22,9 +21,13 @@ import {
   Building2,
   Calendar,
   KeyRound,
-  Check
+  Check,
+  Upload,
+  X,
+  Send,
+  MapPin
 } from 'lucide-react';
-import { runVerification, PRESET_DEMOS, MEDICINE_DATABASE } from '@/lib/mockData';
+import { runVerification, PRESET_DEMOS } from '@/lib/mockData';
 import { VerificationStatus, VerificationResult } from '@/lib/types';
 import confetti from 'canvas-confetti';
 
@@ -32,39 +35,77 @@ export default function EvidenceResults() {
   const searchParams = useSearchParams();
 
   // Read query params if provided
-  const queryPreset = searchParams.get('preset') || searchParams.get('status');
+  const queryStatusParam = (searchParams.get('status') || searchParams.get('preset') || '').toLowerCase();
   const queryGtin = searchParams.get('gtin');
   const queryBatch = searchParams.get('batch');
   const querySerial = searchParams.get('serial');
   const queryExpiry = searchParams.get('expiry');
 
-  // Find initial preset or run verification
-  const [selectedStatus, setSelectedStatus] = useState<VerificationStatus>(() => {
-    if (queryPreset === 'suspicious') return 'suspicious';
-    if (queryPreset === 'expired') return 'expired';
-    return 'consistent';
+  const initialPreset = queryStatusParam.includes('suspicious')
+    ? PRESET_DEMOS[1]
+    : queryStatusParam.includes('expired')
+    ? PRESET_DEMOS[2]
+    : PRESET_DEMOS[0];
+
+  const [activeParams, setActiveParams] = useState({
+    gtin: queryGtin || initialPreset.gtin,
+    batch: queryBatch || initialPreset.batch,
+    serial: querySerial || initialPreset.serial,
+    expiry: queryExpiry || initialPreset.expiry,
   });
+
+  const [result, setResult] = useState<VerificationResult>(() =>
+    runVerification(
+      queryGtin || initialPreset.gtin,
+      queryBatch || initialPreset.batch,
+      querySerial || initialPreset.serial,
+      queryExpiry || initialPreset.expiry
+    )
+  );
 
   const [copiedHash, setCopiedHash] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
-  // Compute verification result
-  const currentPreset = PRESET_DEMOS.find((p) => p.targetStatus === selectedStatus) || PRESET_DEMOS[0];
-  
-  const gtinToUse = queryGtin || currentPreset.gtin;
-  const batchToUse = queryBatch || currentPreset.batch;
-  const serialToUse = querySerial || currentPreset.serial;
-  const expiryToUse = queryExpiry || currentPreset.expiry;
-
-  const [result, setResult] = useState<VerificationResult>(() =>
-    runVerification(gtinToUse, batchToUse, serialToUse, expiryToUse)
-  );
+  // Modal report state
+  const [reportSuccess, setReportSuccess] = useState<string | null>(null);
+  const [reportFlags, setReportFlags] = useState<string[]>([
+    'Serial missing or unrecorded in registry',
+    'Packaging text mismatch',
+  ]);
+  const [reportPhotos, setReportPhotos] = useState<string[]>([]);
+  const [reportCity, setReportCity] = useState('Casablanca');
+  const [reportPharmacy, setReportPharmacy] = useState('Pharmacie Centrale Hassan II');
 
   useEffect(() => {
-    const newResult = runVerification(gtinToUse, batchToUse, serialToUse, expiryToUse);
-    setResult(newResult);
+    // If URL query params change, update result
+    const newGtin = searchParams.get('gtin');
+    const newBatch = searchParams.get('batch');
+    const newSerial = searchParams.get('serial');
+    const newExpiry = searchParams.get('expiry');
+    const newStatusParam = (searchParams.get('status') || searchParams.get('preset') || '').toLowerCase();
 
-    if (newResult.status === 'consistent') {
+    if (newGtin || newBatch || newSerial || newExpiry) {
+      const g = newGtin || initialPreset.gtin;
+      const b = newBatch || initialPreset.batch;
+      const s = newSerial || initialPreset.serial;
+      const e = newExpiry || initialPreset.expiry;
+      setActiveParams({ gtin: g, batch: b, serial: s, expiry: e });
+      const newRes = runVerification(g, b, s, e);
+      setResult(newRes);
+    } else if (newStatusParam) {
+      const p = newStatusParam.includes('suspicious')
+        ? PRESET_DEMOS[1]
+        : newStatusParam.includes('expired')
+        ? PRESET_DEMOS[2]
+        : PRESET_DEMOS[0];
+      setActiveParams({ gtin: p.gtin, batch: p.batch, serial: p.serial, expiry: p.expiry });
+      setResult(runVerification(p.gtin, p.batch, p.serial, p.expiry));
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (result.status === 'consistent') {
       try {
         confetti({
           particleCount: 40,
@@ -76,19 +117,24 @@ export default function EvidenceResults() {
         // ignore in SSR
       }
     }
-  }, [selectedStatus, queryGtin, queryBatch, querySerial, queryExpiry]);
+  }, [result.status]);
 
   const handleSwitchPreset = (status: VerificationStatus) => {
-    setSelectedStatus(status);
     const targetPreset = PRESET_DEMOS.find((p) => p.targetStatus === status) || PRESET_DEMOS[0];
-    setResult(
-      runVerification(
-        targetPreset.gtin,
-        targetPreset.batch,
-        targetPreset.serial,
-        targetPreset.expiry
-      )
+    const newParams = {
+      gtin: targetPreset.gtin,
+      batch: targetPreset.batch,
+      serial: targetPreset.serial,
+      expiry: targetPreset.expiry,
+    };
+    setActiveParams(newParams);
+    const newRes = runVerification(
+      newParams.gtin,
+      newParams.batch,
+      newParams.serial,
+      newParams.expiry
     );
+    setResult(newRes);
   };
 
   const handleCopyHash = () => {
@@ -97,33 +143,62 @@ export default function EvidenceResults() {
     setTimeout(() => setCopiedHash(false), 2000);
   };
 
+  const toggleReportFlag = (flag: string) => {
+    if (reportFlags.includes(flag)) {
+      setReportFlags(reportFlags.filter((f) => f !== flag));
+    } else {
+      setReportFlags([...reportFlags, flag]);
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setReportPhotos((prev) => [...prev, event.target?.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const handleSubmitModalReport = (e: React.FormEvent) => {
+    e.preventDefault();
+    const ticketId = `AMMPS-TICKET-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+    setReportSuccess(ticketId);
+  };
+
   // Status visual themes
   const statusTheme = {
     consistent: {
       bannerBg: 'from-emerald-950/90 via-[#0a231d] to-[#071714]',
       border: 'border-emerald-500/50',
       badgeBg: 'bg-emerald-500 text-slate-950 font-bold',
-      icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
-      title: 'CONSISTENT',
-      subtext: 'All signals match reference records and manufacturer serialization registry.',
+      icon: <CheckCircle2 className="h-7 w-7 text-emerald-400" />,
+      bannerHeadline: 'CONSISTENT - All signals match reference records',
+      subtext: 'Product registration found in official pharmaceutical registry. Serial number cryptographically verified in manufacturer batch manifest.',
       pillColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-950/60',
     },
     suspicious: {
       bannerBg: 'from-amber-950/90 via-[#261e09] to-[#171306]',
       border: 'border-amber-500/50',
       badgeBg: 'bg-amber-400 text-slate-950 font-bold',
-      icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
-      title: 'SUSPICIOUS',
-      subtext: 'Serial number not found in registry. Potential counterfeit or unrecorded distribution.',
+      icon: <AlertTriangle className="h-7 w-7 text-amber-400" />,
+      bannerHeadline: 'SUSPICIOUS - Serial number not found in registry',
+      subtext: 'Product catalog exists, but serial number is unrecorded in manufacturer cryptographic registry. Potential counterfeit or clone attack.',
       pillColor: 'text-amber-400 border-amber-500/40 bg-amber-950/60',
     },
     expired: {
       bannerBg: 'from-red-950/90 via-[#290e0e] to-[#1a0808]',
       border: 'border-red-500/50',
       badgeBg: 'bg-red-500 text-white font-bold',
-      icon: <XCircle className="h-6 w-6 text-red-400" />,
-      title: 'EXPIRED',
-      subtext: `Expiration date (${result.scannedExpiry}) has passed. Product is expired and must not be consumed.`,
+      icon: <XCircle className="h-7 w-7 text-red-400" />,
+      bannerHeadline: `EXPIRED - Expiration date (${result.scannedExpiry}) has passed`,
+      subtext: 'Batch record authenticated, but labeled expiration threshold has elapsed. National regulations prohibit dispensing expired pharmaceutical units.',
       pillColor: 'text-red-400 border-red-500/40 bg-red-950/60',
     },
   }[result.status];
@@ -148,7 +223,7 @@ export default function EvidenceResults() {
                 : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
             }`}
           >
-            ✓ Verified (Azole)
+            ✓ Consistent (Azole)
           </button>
 
           <button
@@ -182,10 +257,10 @@ export default function EvidenceResults() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-4">
             <div className="mt-1 flex-shrink-0">{statusTheme.icon}</div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-3 py-0.5 text-xs font-mono ${statusTheme.badgeBg}`}>
-                  {statusTheme.title}
+                  {result.statusLabel}
                 </span>
                 <span className="text-xs font-mono text-slate-300">
                   GTIN: <strong className="text-white">{result.scannedGtin}</strong>
@@ -193,11 +268,21 @@ export default function EvidenceResults() {
                 <span className="text-xs font-mono text-slate-300">
                   BATCH: <strong className="text-white">{result.scannedBatch}</strong>
                 </span>
+                <span className="text-xs font-mono text-slate-300">
+                  REGISTRY: <strong className="text-teal-300">{result.product.registry}</strong>
+                </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                {result.product.name}
+              
+              {/* Exact Banner Headline from requirements */}
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                {statusTheme.bannerHeadline}
               </h1>
-              <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
+
+              <div className="text-base font-semibold text-slate-200">
+                {result.product.name}
+              </div>
+
+              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
                 {statusTheme.subtext}
               </p>
             </div>
@@ -237,35 +322,39 @@ export default function EvidenceResults() {
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-teal-400" />
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                  Official Dossier (AMMPS / BDPM)
+                  Official Product Dossier
                 </h3>
               </div>
               <span className="rounded bg-teal-950 px-2 py-0.5 text-[10px] font-mono text-teal-300 border border-teal-500/30">
-                {result.product.registry}
+                {result.product.registry} (Morocco / France)
               </span>
             </div>
 
             {/* Medicine Specifications List */}
             <div className="space-y-3 text-xs">
               <div className="flex justify-between border-b border-slate-800/60 pb-2">
+                <span className="text-slate-400">Medicine Name:</span>
+                <span className="font-semibold text-white text-right">{result.product.name}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-800/60 pb-2">
                 <span className="text-slate-400">Active Ingredient (DCI):</span>
                 <span className="font-semibold text-white text-right">{result.product.activeIngredient}</span>
               </div>
               <div className="flex justify-between border-b border-slate-800/60 pb-2">
-                <span className="text-slate-400">Dosage &amp; Form:</span>
-                <span className="font-semibold text-white text-right">{result.product.dosage} • {result.product.form}</span>
+                <span className="text-slate-400">Dosage:</span>
+                <span className="font-semibold text-teal-300 font-mono text-right">{result.product.dosage}</span>
               </div>
               <div className="flex justify-between border-b border-slate-800/60 pb-2">
-                <span className="text-slate-400">Marketing Authorization:</span>
-                <span className="font-mono text-teal-300 font-semibold">{result.product.registrationNumber}</span>
+                <span className="text-slate-400">Pharmaceutical Form:</span>
+                <span className="text-slate-200 text-right">{result.product.form}</span>
               </div>
               <div className="flex justify-between border-b border-slate-800/60 pb-2">
                 <span className="text-slate-400">Manufacturer:</span>
                 <span className="text-slate-200 text-right">{result.product.manufacturer}</span>
               </div>
               <div className="flex justify-between border-b border-slate-800/60 pb-2">
-                <span className="text-slate-400">Country of Jurisdiction:</span>
-                <span className="text-slate-200">{result.product.country}</span>
+                <span className="text-slate-400">Registration ID:</span>
+                <span className="font-mono text-teal-300 font-semibold">{result.product.registrationNumber}</span>
               </div>
               <div className="flex justify-between border-b border-slate-800/60 pb-2">
                 <span className="text-slate-400">Packaging Format:</span>
@@ -276,7 +365,7 @@ export default function EvidenceResults() {
                 <span className="font-mono text-emerald-400 font-bold">{result.product.price}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">National Health Reimbursable:</span>
+                <span className="text-slate-400">Health Reimbursable:</span>
                 <span className="text-slate-200">{result.product.isReimbursable ? 'Yes (AMO / Mutuelle)' : 'No'}</span>
               </div>
             </div>
@@ -320,16 +409,16 @@ export default function EvidenceResults() {
                   Multi-Signal Audit Checklist
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Individual deterministic checks &amp; forensic computer vision evaluations
+                  Deterministic registry checks &amp; forensic computer vision evaluations
                 </p>
               </div>
               <span className="text-xs font-mono text-teal-400">
-                6 / 6 CHECKS RUN
+                {result.signals.length} / {result.signals.length} CHECKS RUN
               </span>
             </div>
 
             {/* Checklist Items */}
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {result.signals.map((sig) => (
                 <div
                   key={sig.id}
@@ -343,7 +432,7 @@ export default function EvidenceResults() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5">
+                      <div className="mt-0.5 flex-shrink-0">
                         {sig.status === 'passed' ? (
                           <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                         ) : sig.status === 'warning' ? (
@@ -473,13 +562,17 @@ export default function EvidenceResults() {
           </button>
         </div>
 
-        <Link
-          href={`/report?gtin=${result.scannedGtin}&name=${encodeURIComponent(result.product.name)}&batch=${result.scannedBatch}&serial=${result.scannedSerial}`}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-amber-900/30 hover:from-amber-500 hover:to-amber-600 transition-all"
+        {/* Primary Report CTA: Triggers Report Modal directly */}
+        <button
+          onClick={() => {
+            setReportSuccess(null);
+            setShowReportModal(true);
+          }}
+          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-amber-900/30 hover:from-amber-500 hover:to-amber-600 transition-all cursor-pointer"
         >
           <AlertOctagon className="h-4 w-4" />
-          <span>Report Inconsistency / Flag Package</span>
-        </Link>
+          <span>Report Inconsistency</span>
+        </button>
       </div>
 
       {/* Regulatory Advice Disclaimer */}
@@ -550,6 +643,201 @@ export default function EvidenceResults() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Anomaly Report Modal (Route 4 Dialog) */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-amber-500/40 bg-[#091b31] p-6 sm:p-8 shadow-2xl text-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowReportModal(false)}
+              className="absolute top-4 right-4 rounded-lg p-1 text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400">
+                <AlertOctagon className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Report Inconsistency / Anomaly</h3>
+                <p className="text-xs text-slate-300">
+                  Pre-populated incident report for AMMPS / BDPM Pharmacovigilance Inspection.
+                </p>
+              </div>
+            </div>
+
+            {reportSuccess ? (
+              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/30 p-6 text-center space-y-4">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <h4 className="text-lg font-bold text-white">Report Successfully Logged</h4>
+                <p className="text-xs text-slate-300 max-w-md mx-auto">
+                  Incident ticket <strong className="text-emerald-400 font-mono">{reportSuccess}</strong> has been transmitted to the national pharmacovigilance network.
+                </p>
+                <div className="flex justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => setShowReportModal(false)}
+                    className="rounded-xl bg-teal-500 px-5 py-2 text-xs font-semibold text-white hover:bg-teal-400"
+                  >
+                    Done
+                  </button>
+                  <Link
+                    href="/report"
+                    className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                  >
+                    Open Standalone Report Page
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitModalReport} className="space-y-5 text-xs">
+                {/* Product & Batch & Expiry Info (Prefilled) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 font-mono">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">MEDICINE:</span>
+                    <span className="text-white font-bold">{result.product.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">SCANNED GTIN:</span>
+                    <span className="text-teal-300 font-bold">{result.scannedGtin}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">BATCH NUMBER:</span>
+                    <span className="text-white font-bold">{result.scannedBatch}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">EXPIRY DATE:</span>
+                    <span className="text-white font-bold">{result.scannedExpiry}</span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-slate-400 block text-[10px]">SERIAL NUMBER:</span>
+                    <span className="text-amber-400 font-bold">{result.scannedSerial}</span>
+                  </div>
+                </div>
+
+                {/* Checkbox Group */}
+                <div className="space-y-2">
+                  <span className="font-semibold text-slate-200 block text-xs font-mono">
+                    Observed Anomaly Checkboxes:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      'Barcode unreadable',
+                      'Serial missing',
+                      'Packaging text mismatch',
+                      'Suspected tampering',
+                    ].map((flag) => {
+                      const checked = reportFlags.includes(flag);
+                      return (
+                        <label
+                          key={flag}
+                          onClick={() => toggleReportFlag(flag)}
+                          className={`flex items-center gap-2.5 rounded-xl border p-2.5 cursor-pointer transition-all ${
+                            checked
+                              ? 'border-amber-500/50 bg-amber-950/40 text-amber-200'
+                              : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:bg-slate-900'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {}}
+                            className="h-4 w-4 rounded border-slate-700 text-amber-500 focus:ring-amber-500"
+                          />
+                          <span className="text-xs font-medium">{flag}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Image Upload Zone */}
+                <div className="space-y-2">
+                  <span className="font-semibold text-slate-200 block text-xs font-mono">
+                    Package Photos:
+                  </span>
+                  <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      id="modal-photo-upload"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                    <label htmlFor="modal-photo-upload" className="cursor-pointer block space-y-1">
+                      <Upload className="mx-auto h-5 w-5 text-teal-400" />
+                      <span className="text-[11px] text-slate-300 block">Click to upload photos or drag & drop</span>
+                    </label>
+                    {reportPhotos.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                        {reportPhotos.map((p, i) => (
+                          <div key={i} className="h-14 w-14 rounded-lg overflow-hidden border border-teal-500/40">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={p} alt="evidence" className="h-full w-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Location Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">City / Region</label>
+                    <input
+                      type="text"
+                      value={reportCity}
+                      onChange={(e) => setReportCity(e.target.value)}
+                      required
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">Pharmacy / Purchase Location</label>
+                    <input
+                      type="text"
+                      value={reportPharmacy}
+                      onChange={(e) => setReportPharmacy(e.target.value)}
+                      required
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer buttons */}
+                <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+                  <Link
+                    href={`/report?gtin=${result.scannedGtin}&name=${encodeURIComponent(result.product.name)}&batch=${result.scannedBatch}&serial=${result.scannedSerial}&expiry=${result.scannedExpiry}`}
+                    className="text-xs text-slate-400 hover:text-white"
+                  >
+                    Open Standalone Page
+                  </Link>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowReportModal(false)}
+                      className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-2 text-xs font-semibold text-white shadow-md hover:from-amber-500 hover:to-amber-600"
+                    >
+                      Submit Report
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

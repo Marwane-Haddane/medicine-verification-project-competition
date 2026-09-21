@@ -26,10 +26,12 @@ export default function AnomalyReportForm() {
   const initialName = searchParams.get('name') || 'Doliprane 1000 mg';
   const initialBatch = searchParams.get('batch') || 'LOT-FR-4421';
   const initialSerial = searchParams.get('serial') || 'SN-UNKNOWN-8899';
+  const initialExpiry = searchParams.get('expiry') || '08/2027';
 
   const [medicineName, setMedicineName] = useState(initialName);
   const [gtin, setGtin] = useState(initialGtin);
   const [batchNumber, setBatchNumber] = useState(initialBatch);
+  const [expiry, setExpiry] = useState(initialExpiry);
   const [serialNumber, setSerialNumber] = useState(initialSerial);
   const [city, setCity] = useState('Casablanca');
   const [pharmacyName, setPharmacyName] = useState('Pharmacie Centrale Hassan II');
@@ -40,8 +42,8 @@ export default function AnomalyReportForm() {
   );
 
   const [selectedFlags, setSelectedFlags] = useState<string[]>([
-    'Serial missing or unrecorded in registry',
-    'Packaging text / font mismatch',
+    'Serial missing',
+    'Packaging text mismatch',
   ]);
 
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
@@ -51,10 +53,10 @@ export default function AnomalyReportForm() {
   } | null>(null);
 
   const availableFlags = [
-    'Barcode unreadable or invalid DataMatrix',
-    'Serial missing or unrecorded in registry',
-    'Packaging text / font mismatch',
-    'Suspected tampering or broken seal',
+    'Barcode unreadable',
+    'Serial missing',
+    'Packaging text mismatch',
+    'Suspected tampering',
     'Abnormal tablet color, texture, or odor',
     'Sold significantly below official regulated tariff',
   ];
@@ -150,6 +152,10 @@ export default function AnomalyReportForm() {
               <span className="text-white">{batchNumber}</span>
             </div>
             <div className="flex justify-between">
+              <span className="text-slate-400">EXPIRY DATE:</span>
+              <span className="text-white">{expiry}</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-slate-400">SERIAL:</span>
               <span className="text-amber-400">{serialNumber}</span>
             </div>
@@ -187,8 +193,8 @@ export default function AnomalyReportForm() {
               <span>01. Package Identifiers</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
                 <label className="block text-xs font-mono text-slate-300">
                   Medicine Name
                 </label>
@@ -222,6 +228,20 @@ export default function AnomalyReportForm() {
                   type="text"
                   value={batchNumber}
                   onChange={(e) => setBatchNumber(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm font-mono text-white focus:border-teal-400 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-mono text-slate-300">
+                  Expiration Date (MM/YYYY)
+                </label>
+                <input
+                  type="text"
+                  value={expiry}
+                  onChange={(e) => setExpiry(e.target.value)}
+                  placeholder="MM/YYYY"
                   required
                   className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm font-mono text-white focus:border-teal-400 focus:outline-none"
                 />
