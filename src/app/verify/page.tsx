@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import ScannerInterface from '@/components/scanner/ScannerInterface';
 
 export const metadata = {
@@ -9,7 +9,15 @@ export const metadata = {
 export default function VerifyPage() {
   return (
     <div className="py-6">
-      <ScannerInterface />
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-5xl p-8 text-center text-slate-500 font-mono text-xs">
+            Loading optical verification scanner...
+          </div>
+        }
+      >
+        <ScannerInterface />
+      </Suspense>
     </div>
   );
 }

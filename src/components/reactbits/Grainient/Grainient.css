@@ -1,0 +1,9 @@
+.grainient-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(circle at 45% 25%, rgba(88, 174, 217, 0.14), transparent 65%),
+              radial-gradient(circle at 80% 75%, rgba(13, 148, 136, 0.08), transparent 60%),
+              #ffffff;
+}

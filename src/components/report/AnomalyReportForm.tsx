@@ -4,19 +4,14 @@ import React, { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  AlertTriangle, 
   Upload, 
   CheckCircle2, 
   ShieldAlert, 
-  FileText, 
-  MapPin, 
-  Building, 
-  Calendar, 
-  Send,
-  ArrowLeft,
-  Copy,
-  Printer
+  ArrowLeft, 
+  Printer, 
+  Send
 } from 'lucide-react';
+import ThoughtLine from '@/components/reactbits/ThoughtLine/ThoughtLine';
 
 export default function AnomalyReportForm() {
   const searchParams = useSearchParams();
@@ -47,6 +42,8 @@ export default function AnomalyReportForm() {
   ]);
 
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
+  const [isPhotoScanning, setIsPhotoScanning] = useState(false);
+  const [photoSteps, setPhotoSteps] = useState<string[]>([]);
   const [submittedTicket, setSubmittedTicket] = useState<{
     id: string;
     timestamp: string;
@@ -72,6 +69,15 @@ export default function AnomalyReportForm() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
+      setIsPhotoScanning(true);
+      setPhotoSteps(['Ingesting uploaded packaging specimen']);
+      setTimeout(() => {
+        setPhotoSteps((prev) => [...prev, 'Scanning for tamper indicators & print density']);
+      }, 400);
+      setTimeout(() => {
+        setPhotoSteps((prev) => [...prev, 'Photographic evidence verified for inspection dossier']);
+        setIsPhotoScanning(false);
+      }, 950);
       Array.from(files).forEach((file) => {
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -94,12 +100,12 @@ export default function AnomalyReportForm() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
       {/* Back Link */}
       <div className="mb-6">
         <Link
           href="/result"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-teal-300 transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-teal-700 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Evidence Scorecard</span>
@@ -108,74 +114,74 @@ export default function AnomalyReportForm() {
 
       {/* Header */}
       <div className="space-y-3 mb-8">
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-950/40 px-3.5 py-1 text-xs font-semibold text-amber-300">
-          <ShieldAlert className="h-3.5 w-3.5" />
+        <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3.5 py-1 text-xs font-semibold text-amber-800 shadow-sm">
+          <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
           <span>Pharmacovigilance Incident Dispatch</span>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
           Report Pharmaceutical Anomaly
         </h1>
-        <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
+        <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
           Submit suspicious packaging, serial mismatch, or tampering to the AMMPS / BDPM regulatory alert network. Reports are immediately logged for forensic inspection.
         </p>
       </div>
 
       {/* Success State Screen */}
       {submittedTicket ? (
-        <div className="rounded-3xl border border-emerald-500/40 bg-gradient-to-b from-[#0e2c24] to-[#071714] p-8 sm:p-12 shadow-2xl text-center space-y-6">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400">
+        <div className="rounded-3xl border border-emerald-300 bg-emerald-50/60 p-8 sm:p-12 shadow-xl text-center space-y-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-sm">
             <CheckCircle2 className="h-8 w-8" />
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-white">Incident Report Dispatched</h2>
-            <p className="text-sm text-slate-300 max-w-md mx-auto">
+            <h2 className="text-2xl font-bold text-slate-900">Incident Report Dispatched</h2>
+            <p className="text-sm text-slate-600 max-w-md mx-auto">
               Your report has been encrypted, assigned a regulatory ticket ID, and routed to the AMMPS Pharmacovigilance Inspection Unit.
             </p>
           </div>
 
-          <div className="mx-auto max-w-md rounded-2xl border border-slate-800 bg-slate-950/80 p-5 font-mono text-xs text-left space-y-2">
-            <div className="flex justify-between border-b border-slate-800 pb-2">
-              <span className="text-slate-400">TICKET ID:</span>
-              <span className="text-emerald-400 font-bold">{submittedTicket.id}</span>
+          <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-5 font-mono text-xs text-left space-y-2 shadow-sm">
+            <div className="flex justify-between border-b border-slate-100 pb-2">
+              <span className="text-slate-500">TICKET ID:</span>
+              <span className="text-emerald-700 font-bold">{submittedTicket.id}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">MEDICINE:</span>
-              <span className="text-white">{medicineName}</span>
+              <span className="text-slate-500">MEDICINE:</span>
+              <span className="text-slate-900">{medicineName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">GTIN:</span>
-              <span className="text-teal-300">{gtin}</span>
+              <span className="text-slate-500">GTIN:</span>
+              <span className="text-teal-700">{gtin}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">BATCH / LOT:</span>
-              <span className="text-white">{batchNumber}</span>
+              <span className="text-slate-500">BATCH / LOT:</span>
+              <span className="text-slate-900">{batchNumber}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">EXPIRY DATE:</span>
-              <span className="text-white">{expiry}</span>
+              <span className="text-slate-500">EXPIRY DATE:</span>
+              <span className="text-slate-900">{expiry}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">SERIAL:</span>
-              <span className="text-amber-400">{serialNumber}</span>
+              <span className="text-slate-500">SERIAL:</span>
+              <span className="text-amber-700">{serialNumber}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">PHARMACY / CITY:</span>
-              <span className="text-slate-200">{pharmacyName}, {city}</span>
+              <span className="text-slate-500">PHARMACY / CITY:</span>
+              <span className="text-slate-800">{pharmacyName}, {city}</span>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm cursor-pointer"
             >
               <Printer className="h-4 w-4" />
               <span>Print Confirmation Receipt</span>
             </button>
             <button
               onClick={() => setSubmittedTicket(null)}
-              className="rounded-xl bg-teal-500 px-5 py-2.5 text-xs font-semibold text-white hover:bg-teal-400 transition-all shadow-md shadow-teal-500/25"
+              className="rounded-xl bg-teal-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-teal-700 transition-all shadow-md shadow-teal-600/20 cursor-pointer"
             >
               Submit Another Report
             </button>
@@ -185,17 +191,17 @@ export default function AnomalyReportForm() {
         /* Form Card */
         <form
           onSubmit={handleSubmit}
-          className="rounded-3xl border border-slate-800 bg-[#08182c]/90 p-6 sm:p-10 shadow-2xl space-y-8"
+          className="rounded-3xl border border-slate-200 bg-white/95 p-6 sm:p-10 shadow-xl space-y-8"
         >
           {/* Section 1: Product Identifiers */}
           <div className="space-y-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3 font-mono">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3 font-mono">
               <span>01. Package Identifiers</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
-                <label className="block text-xs font-mono text-slate-300">
+                <label className="block text-xs font-mono text-slate-700">
                   Medicine Name
                 </label>
                 <input
@@ -203,12 +209,12 @@ export default function AnomalyReportForm() {
                   value={medicineName}
                   onChange={(e) => setMedicineName(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono text-slate-300">
+                <label className="block text-xs font-mono text-slate-700">
                   GTIN / Barcode (14 Digits)
                 </label>
                 <input
@@ -216,12 +222,12 @@ export default function AnomalyReportForm() {
                   value={gtin}
                   onChange={(e) => setGtin(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm font-mono text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-mono text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono text-slate-300">
+                <label className="block text-xs font-mono text-slate-700">
                   Batch / Lot Number
                 </label>
                 <input
@@ -229,12 +235,12 @@ export default function AnomalyReportForm() {
                   value={batchNumber}
                   onChange={(e) => setBatchNumber(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm font-mono text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-mono text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono text-slate-300">
+                <label className="block text-xs font-mono text-slate-700">
                   Expiration Date (MM/YYYY)
                 </label>
                 <input
@@ -243,12 +249,12 @@ export default function AnomalyReportForm() {
                   onChange={(e) => setExpiry(e.target.value)}
                   placeholder="MM/YYYY"
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm font-mono text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-mono text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono text-slate-300">
+                <label className="block text-xs font-mono text-slate-700">
                   Serial Number (AI 21)
                 </label>
                 <input
@@ -256,7 +262,7 @@ export default function AnomalyReportForm() {
                   value={serialNumber}
                   onChange={(e) => setSerialNumber(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm font-mono text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-mono text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 />
               </div>
             </div>
@@ -264,7 +270,7 @@ export default function AnomalyReportForm() {
 
           {/* Section 2: Observed Anomalies Checkboxes */}
           <div className="space-y-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3 font-mono">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3 font-mono">
               <span>02. Observed Anomaly Indicators</span>
             </h3>
 
@@ -277,15 +283,15 @@ export default function AnomalyReportForm() {
                     onClick={() => toggleFlag(flag)}
                     className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
                       checked
-                        ? 'border-amber-500/50 bg-amber-950/30 text-amber-200'
-                        : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:bg-slate-900'
+                        ? 'border-amber-400 bg-amber-50 text-amber-900 font-medium'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => {}}
-                      className="mt-1 h-4 w-4 rounded border-slate-700 text-amber-500 focus:ring-amber-500"
+                      className="mt-1 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
                     />
                     <span className="text-xs font-medium leading-relaxed">{flag}</span>
                   </label>
@@ -296,122 +302,140 @@ export default function AnomalyReportForm() {
 
           {/* Section 3: Photo Evidence Upload */}
           <div className="space-y-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3 font-mono">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3 font-mono">
               <span>03. Photographic Evidence</span>
             </h3>
 
-            <div className="rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/50 p-6 text-center">
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
               <input
                 type="file"
                 multiple
                 accept="image/*"
+                id="photo-evidence-upload"
                 onChange={handlePhotoUpload}
-                id="photo-upload"
                 className="hidden"
               />
-              <label htmlFor="photo-upload" className="cursor-pointer space-y-2 block">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500/20 text-teal-400">
-                  <Upload className="h-6 w-6" />
-                </div>
-                <div className="text-xs font-semibold text-white">
-                  Attach photos of box, batch stamp, or blister
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  High-resolution photos assist computer vision forensic analysis
-                </div>
+              <label htmlFor="photo-evidence-upload" className="cursor-pointer block space-y-2">
+                <Upload className="mx-auto h-8 w-8 text-teal-600" />
+                <span className="text-xs font-semibold text-slate-800 block">Click to upload packaging photos</span>
+                <span className="text-[11px] text-slate-500 block">Upload photos of DataMatrix, batch imprint, blister pack, or cardboard edges</span>
               </label>
 
               {uploadedPhotos.length > 0 && (
-                <div className="mt-4 flex flex-wrap justify-center gap-3">
-                  {uploadedPhotos.map((photo, i) => (
-                    <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border border-teal-500/40">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photo} alt="Evidence" className="h-full w-full object-cover" />
-                    </div>
-                  ))}
+                <div className="space-y-3 pt-3">
+                  <div className="flex flex-wrap gap-3 justify-center">
+                    {uploadedPhotos.map((p, i) => (
+                      <div key={i} className="h-20 w-20 rounded-xl overflow-hidden border border-teal-300 shadow-sm">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={p} alt="evidence" className="h-full w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200 text-left shadow-sm">
+                    <ThoughtLine
+                      working={isPhotoScanning}
+                      steps={photoSteps}
+                      label="Analyzing packaging photo evidence…"
+                      doneLabel="Specimen photo evaluated in"
+                      glyph="sparkle"
+                      fontSize={14}
+                      color="#0D9488"
+                      collapsible
+                      showTimer
+                    />
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Section 4: Location & Purchase Details */}
+          {/* Section 4: Location & Metadata */}
           <div className="space-y-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3 font-mono">
-              <span>04. Source Pharmacy &amp; Location</span>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3 font-mono">
+              <span>04. Discovery Location &amp; Observations</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono text-slate-300">City / Wilaya</label>
+                <label className="block text-xs font-mono text-slate-700">
+                  City / Region
+                </label>
                 <input
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 />
               </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
-                <label className="block text-xs font-mono text-slate-300">Pharmacy / Dispensary Name</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-mono text-slate-700">
+                  Pharmacy / Dispensary Name
+                </label>
                 <input
                   type="text"
                   value={pharmacyName}
                   onChange={(e) => setPharmacyName(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono text-slate-300">Purchase Date</label>
+                <label className="block text-xs font-mono text-slate-700">
+                  Purchase / Verification Date
+                </label>
                 <input
                   type="date"
                   value={purchaseDate}
                   onChange={(e) => setPurchaseDate(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 />
               </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
-                <label className="block text-xs font-mono text-slate-300">Reporter Role</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-mono text-slate-700">
+                  Reporter Role
+                </label>
                 <select
                   value={reporterRole}
                   onChange={(e) => setReporterRole(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
                 >
-                  <option value="Pharmacist">Licensed Pharmacist</option>
-                  <option value="Pharmacy Technician">Pharmacy Technician / Assistant</option>
-                  <option value="Physician">Physician / Doctor</option>
+                  <option value="Pharmacist">Community Pharmacist</option>
+                  <option value="Hospital Pharmacist">Hospital Pharmacist</option>
+                  <option value="Wholesaler">Pharmaceutical Wholesaler</option>
                   <option value="Patient">Patient / Consumer</option>
-                  <option value="Health Inspector">Regulatory Health Inspector</option>
+                  <option value="Physician">Physician</option>
                 </select>
               </div>
-            </div>
 
-            <div className="space-y-1.5 pt-2">
-              <label className="block text-xs font-mono text-slate-300">
-                Detailed Incident Observations
-              </label>
-              <textarea
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                rows={3}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-2.5 text-sm text-white focus:border-teal-400 focus:outline-none"
-                placeholder="Provide any additional details about packaging, vendor, or discrepancy..."
-              />
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="block text-xs font-mono text-slate-700">
+                  Detailed Forensic Notes &amp; Observations
+                </label>
+                <textarea
+                  rows={3}
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none shadow-sm"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <div className="pt-4 border-t border-slate-800">
+          {/* Submit CTA */}
+          <div className="pt-4 border-t border-slate-200 flex justify-end">
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 py-3.5 text-sm font-semibold text-white shadow-xl shadow-amber-950/50 hover:from-amber-500 hover:to-amber-600 transition-all active:scale-[0.99]"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-600/25 hover:from-amber-500 hover:to-amber-600 transition-all cursor-pointer"
             >
               <Send className="h-4 w-4" />
-              <span>Transmit Anomaly Report to Pharmacovigilance</span>
+              <span>Transmit Report to AMMPS Pharmacovigilance</span>
             </button>
           </div>
         </form>
