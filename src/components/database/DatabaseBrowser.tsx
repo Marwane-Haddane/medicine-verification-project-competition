@@ -21,16 +21,50 @@ import { MedicineRecord } from '@/lib/types';
 export default function DatabaseBrowser() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegistry, setSelectedRegistry] = useState<'ALL' | 'AMMPS' | 'BDPM'>('ALL');
+  const [selectedIngredient, setSelectedIngredient] = useState<string>('ALL');
+  const [selectedDosage, setSelectedDosage] = useState<string>('ALL');
   const [selectedForm, setSelectedForm] = useState<string>('ALL');
   const [selectedMedicine, setSelectedMedicine] = useState<MedicineRecord | null>(null);
 
-  const formsList = ['ALL', 'Comprimé', 'Gélule', 'Suspension / Sirop', 'Poudre'];
+  const activeIngredientsList = [
+    'ALL',
+    'Albendazole',
+    'Paracétamol',
+    'Amoxicilline',
+    'Salbutamol',
+    'Aspirine',
+    'Ésoméprazole',
+    'Metformine',
+  ];
+
+  const dosagesList = [
+    'ALL',
+    '400 mg',
+    '500 mg',
+    '1000 mg',
+    '75 mg',
+    '40 mg',
+    '100 µg',
+    '1 g / 125 mg',
+  ];
 
   const filteredMedicines = useMemo(() => {
     return MEDICINE_DATABASE.filter((med) => {
       // Registry filter
       if (selectedRegistry !== 'ALL' && med.registry !== selectedRegistry) {
         return false;
+      }
+      // Active ingredient filter
+      if (selectedIngredient !== 'ALL') {
+        if (!med.activeIngredient.toLowerCase().includes(selectedIngredient.toLowerCase())) {
+          return false;
+        }
+      }
+      // Dosage filter
+      if (selectedDosage !== 'ALL') {
+        if (!med.dosage.toLowerCase().includes(selectedDosage.toLowerCase())) {
+          return false;
+        }
       }
       // Form filter
       if (selectedForm !== 'ALL') {
@@ -49,7 +83,22 @@ export default function DatabaseBrowser() {
       }
       return true;
     });
-  }, [searchQuery, selectedRegistry, selectedForm]);
+  }, [searchQuery, selectedRegistry, selectedIngredient, selectedDosage, selectedForm]);
+
+  const hasActiveFilters =
+    searchQuery ||
+    selectedRegistry !== 'ALL' ||
+    selectedIngredient !== 'ALL' ||
+    selectedDosage !== 'ALL' ||
+    selectedForm !== 'ALL';
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedRegistry('ALL');
+    setSelectedIngredient('ALL');
+    setSelectedDosage('ALL');
+    setSelectedForm('ALL');
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-16 space-y-8">
@@ -64,7 +113,7 @@ export default function DatabaseBrowser() {
             Public Pharmaceutical Registry
           </h1>
           <p className="text-sm text-slate-300 mt-1 max-w-2xl">
-            Live synchronized database indexing official medicines from <strong className="text-teal-300">AMMPS (Morocco DMP)</strong> and <strong className="text-teal-300">BDPM (France ANSM)</strong>.
+            Searchable reference database indexing authentic medicines from <strong className="text-teal-300">AMMPS (Morocco DMP)</strong> and <strong className="text-teal-300">BDPM (France ANSM)</strong>.
           </p>
         </div>
 
@@ -75,10 +124,10 @@ export default function DatabaseBrowser() {
       </div>
 
       {/* Filter and Search Controls */}
-      <div className="rounded-2xl border border-slate-800 bg-[#08182c]/80 p-4 sm:p-5 space-y-4">
+      <div className="rounded-2xl border border-slate-800 bg-[#08182c]/80 p-5 space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* Search Box */}
-          <div className="md:col-span-6 relative">
+          <div className="md:col-span-8 relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
@@ -90,7 +139,7 @@ export default function DatabaseBrowser() {
           </div>
 
           {/* Registry Filter Buttons */}
-          <div className="md:col-span-3 flex items-center gap-1.5 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+          <div className="md:col-span-4 flex items-center gap-1.5 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
             {(['ALL', 'AMMPS', 'BDPM'] as const).map((reg) => (
               <button
                 key={reg}
@@ -101,38 +150,76 @@ export default function DatabaseBrowser() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {reg === 'ALL' ? 'All' : reg}
+                {reg === 'ALL' ? 'All Registries' : reg}
               </button>
             ))}
           </div>
+        </div>
 
-          {/* Form Filter Chips */}
-          <div className="md:col-span-3">
-            <select
-              value={selectedForm}
-              onChange={(e) => setSelectedForm(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2.5 text-xs sm:text-sm text-slate-200 focus:border-teal-400 focus:outline-none"
-            >
-              {formsList.map((f) => (
-                <option key={f} value={f}>
-                  {f === 'ALL' ? 'All Dosage Forms' : f}
-                </option>
-              ))}
-            </select>
+        {/* Filter Chips: Active Ingredient */}
+        <div className="space-y-2 pt-2 border-t border-slate-800/80">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
+              <Filter className="h-3 w-3 text-teal-400" />
+              <span>Filter by Active Ingredient (DCI):</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {activeIngredientsList.map((ing) => {
+              const isSelected = selectedIngredient === ing;
+              return (
+                <button
+                  key={ing}
+                  onClick={() => setSelectedIngredient(ing)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                    isSelected
+                      ? 'bg-teal-500 text-white font-semibold shadow-md shadow-teal-500/25 scale-105'
+                      : 'bg-slate-900/90 text-slate-300 hover:bg-slate-800 border border-slate-700/80'
+                  }`}
+                >
+                  {ing === 'ALL' ? 'All Ingredients' : ing}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Quick Result Counter */}
+        {/* Filter Chips: Dosage */}
+        <div className="space-y-2 pt-2 border-t border-slate-800/80">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold block">
+            Filter by Dosage Strength:
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {dosagesList.map((d) => {
+              const isSelected = selectedDosage === d;
+              return (
+                <button
+                  key={d}
+                  onClick={() => setSelectedDosage(d)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-mono font-medium transition-all ${
+                    isSelected
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/25 scale-105'
+                      : 'bg-slate-900/90 text-slate-300 hover:bg-slate-800 border border-slate-700/80'
+                  }`}
+                >
+                  {d === 'ALL' ? 'All Dosages' : d}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Quick Result Counter & Reset */}
         <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/60">
           <span>
-            Displaying <strong className="text-teal-300">{filteredMedicines.length}</strong> authenticated records
+            Displaying <strong className="text-teal-300 font-mono">{filteredMedicines.length}</strong> authenticated records
           </span>
-          {searchQuery && (
+          {hasActiveFilters && (
             <button
-              onClick={() => setSearchQuery('')}
-              className="text-teal-400 hover:underline flex items-center gap-1"
+              onClick={handleClearFilters}
+              className="text-teal-400 hover:underline flex items-center gap-1 text-xs font-medium"
             >
-              <X className="h-3 w-3" /> Clear filter
+              <X className="h-3 w-3" /> Clear all filters
             </button>
           )}
         </div>

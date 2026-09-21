@@ -29,11 +29,11 @@ export default function Navbar() {
   }, []);
 
   const navLinks = [
-    { label: 'Home', href: '/' },
-    { label: 'Verify Scanner', href: '/verify' },
-    { label: 'Evidence Audit', href: '/result' },
-    { label: 'Registry DB', href: '/database' },
-    { label: 'Report Anomaly', href: '/report' },
+    { label: 'Verify', href: '/verify' },
+    { label: 'How It Works', href: '/#how-it-works' },
+    { label: 'Technology', href: '/#technology' },
+    { label: 'Database', href: '/database' },
+    { label: 'About', href: '/#about' },
   ];
 
   return (

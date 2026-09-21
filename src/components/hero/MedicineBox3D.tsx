@@ -49,7 +49,7 @@ export default function MedicineBox3D() {
           </div>
           <div>
             <div className="font-semibold text-emerald-400 text-[11px] leading-tight flex items-center gap-1">
-              ✓ Product recognized
+              ✓ Product recognized (AMMPS)
             </div>
             <div className="text-[10px] text-slate-400 font-mono">AMMPS Registry ID #920342</div>
           </div>
@@ -94,7 +94,7 @@ export default function MedicineBox3D() {
           </div>
           <div>
             <div className="font-semibold text-amber-400 text-[11px] leading-tight flex items-center gap-1">
-              ⚠ Packaging anomaly probe
+              ⚠ Packaging anomaly detected
             </div>
             <div className="text-[10px] text-slate-400">Active CV Tamper Scan</div>
           </div>

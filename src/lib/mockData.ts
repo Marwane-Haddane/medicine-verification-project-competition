@@ -392,21 +392,36 @@ export function runVerification(
     }
   }
 
-  // Parse expiry: format MM/YYYY or YYYY-MM
+  // Parse expiry: format MM/YYYY, MM-YYYY, YYYY-MM
   let isExpired = false;
   const now = new Date();
   if (expiry) {
-    const parts = expiry.split('/');
-    if (parts.length === 2) {
-      const expMonth = parseInt(parts[0], 10);
-      const expYear = parseInt(parts[1], 10);
+    let expMonth: number | null = null;
+    let expYear: number | null = null;
+
+    if (expiry.includes('/') || expiry.includes('-')) {
+      const separator = expiry.includes('/') ? '/' : '-';
+      const parts = expiry.split(separator);
+      if (parts.length === 2) {
+        if (parts[0].length === 4) {
+          expYear = parseInt(parts[0], 10);
+          expMonth = parseInt(parts[1], 10);
+        } else {
+          expMonth = parseInt(parts[0], 10);
+          expYear = parseInt(parts[1], 10);
+          if (expYear < 100) expYear += 2000;
+        }
+      }
+    }
+
+    if (expYear && expMonth) {
       const expDate = new Date(expYear, expMonth, 0); // last day of month
       isExpired = expDate < now;
     }
   }
 
   // If known expired batch or preset
-  if (batch.toLowerCase().includes('exp') || expiry.endsWith('2024') || expiry.endsWith('2023')) {
+  if (batch.toLowerCase().includes('exp') || expiry.endsWith('2024') || expiry.endsWith('2023') || expiry.endsWith('2022')) {
     isExpired = true;
   }
 
@@ -430,20 +445,20 @@ export function runVerification(
   // Determine overall status
   let status: VerificationStatus = 'consistent';
   let statusLabel = 'CONSISTENT';
-  let statusMessage = 'All cryptographic & physical signals match reference records.';
+  let statusMessage = 'CONSISTENT - All signals match reference records.';
   let overallScore = 98;
   let confidenceScore = 99.4;
 
   if (isExpired) {
     status = 'expired';
     statusLabel = 'EXPIRED';
-    statusMessage = `Expiration date (${expiry || '06/2024'}) has passed. This medication has expired and should not be consumed.`;
+    statusMessage = `EXPIRED - Expiration date (${expiry || '06/2024'}) has passed.`;
     overallScore = 24;
     confidenceScore = 99.1;
   } else if (!isSerialValid) {
     status = 'suspicious';
     statusLabel = 'SUSPICIOUS';
-    statusMessage = 'Serial number not found in registry. Potential counterfeit, diverted stock, or clone attack.';
+    statusMessage = 'SUSPICIOUS - Serial number not found in registry.';
     overallScore = 46;
     confidenceScore = 92.5;
   }
@@ -460,7 +475,7 @@ export function runVerification(
     },
     {
       id: 'sig-manufacturer',
-      title: 'Manufacturer Accreditation Verified',
+      title: 'Manufacturer Verified',
       description: `Lab ${product.manufacturer} is GMP certified and holds active distribution license for ${product.country}.`,
       passed: true,
       status: 'passed',
@@ -469,7 +484,7 @@ export function runVerification(
     },
     {
       id: 'sig-batch',
-      title: 'Batch Format & Checksum Validated',
+      title: 'Batch Format Validated',
       description: `Batch ${batch || product.defaultBatch} conforms to GS1 Application Identifier (10) formatting rules and lab release manifest.`,
       passed: true,
       status: 'passed',
@@ -478,10 +493,10 @@ export function runVerification(
     },
     {
       id: 'sig-serial',
-      title: 'Package Serial Record in Registry',
+      title: isSerialValid ? 'Package Serial Record Verified' : 'Package Serial Record Unverified',
       description: isSerialValid
         ? `Serial ${serial || product.defaultSerial} discovered in cryptographically signed batch manifest.`
-        : `Serial ${serial || 'SN-UNKNOWN-8899'} is UNRECORDED or duplicate. Flagged for anti-counterfeit inspection.`,
+        : `Serial ${serial || 'SN-UNKNOWN-8899'} is UNRECORDED in manufacturer registry. Potential counterfeit or diverted stock.`,
       passed: isSerialValid,
       status: isSerialValid ? 'passed' : 'warning',
       code: isSerialValid ? 'GS1-AI-21-AUTHENTIC' : 'GS1-AI-21-UNVERIFIED',
@@ -489,7 +504,7 @@ export function runVerification(
     },
     {
       id: 'sig-expiry',
-      title: 'Expiration Date Temporal Validation',
+      title: !isExpired ? 'Expiration Date in Valid Range' : 'Expiration Date Expired',
       description: !isExpired
         ? `Expiry ${expiry || product.defaultExpiry} is within safe operational lifecycle window.`
         : `Expiry ${expiry || '06/2024'} has elapsed. Regulatory release rules prohibit dispensing expired lots.`,
@@ -500,7 +515,7 @@ export function runVerification(
     },
     {
       id: 'sig-cv-tamper',
-      title: 'AI Computer Vision Packaging Integrity',
+      title: 'AI Computer Vision Packaging Inspection',
       description: isSerialValid && !isExpired
         ? 'Neural packaging inspection confirmed micro-font kerning, CMYK spectral consistency, and intact tamper-evident foil.'
         : isSerialValid
