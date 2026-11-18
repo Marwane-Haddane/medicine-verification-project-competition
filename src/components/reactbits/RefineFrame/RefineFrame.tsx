@@ -77,7 +77,7 @@ const build = (s: SimState, canvas: HTMLCanvasElement, img: HTMLImageElement, dp
       [0.92, 0.1],
       [1, 0]
     ] as [number, number][]) {
-      glint.addColorStop(at, `rgba(13, 148, 136, ${a * 0.4})`);
+      glint.addColorStop(at, `rgba(13, 148, 136, ${a * 0.4})`); // subtle teal glint
     }
   }
   s.glint = glint;
@@ -151,24 +151,24 @@ export default function RefineFrame({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sim = useRef<SimState>({ p: 0, raf: 0, last: 0, key: '', w: 0, h: 0, levels: [], glint: null, sent: false });
   const live = useRef({ status, stageDuration, sweep, reduce: false });
-
-  useEffect(() => {
-    live.current = { status, stageDuration, sweep, reduce: live.current.reduce };
-  }, [status, stageDuration, sweep]);
-
+  live.current = { status, stageDuration, sweep, reduce: false };
   const [mosaic, setMosaic] = useState(false);
   const [resolved, setResolved] = useState(false);
-  const [timedOutComplete, setTimedOutComplete] = useState(false);
 
+  const [chip, setChip] = useState(showStatus);
+  const timer = useRef<NodeJS.Timeout | undefined>(undefined);
   useEffect(() => {
-    if (status !== 'complete' || hideAfter <= 0) {
-      return;
+    clearTimeout(timer.current);
+    if (!showStatus) {
+      setChip(false);
+      return undefined;
     }
-    const t = setTimeout(() => setTimedOutComplete(true), hideAfter);
-    return () => clearTimeout(t);
-  }, [status, hideAfter]);
-
-  const chip = showStatus && !(status === 'complete' && timedOutComplete);
+    setChip(true);
+    if (status === 'complete' && hideAfter > 0) {
+      timer.current = setTimeout(() => setChip(false), hideAfter);
+    }
+    return () => clearTimeout(timer.current);
+  }, [status, showStatus, hideAfter]);
 
   const tick = (now: number) => {
     const s = sim.current;
@@ -340,3 +340,4 @@ export default function RefineFrame({
     </div>
   );
 }
+

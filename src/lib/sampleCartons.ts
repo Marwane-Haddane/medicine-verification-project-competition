@@ -176,3 +176,4 @@ export const SAMPLE_CARTON_AMOXICILLINE = `data:image/svg+xml;utf8,${encodeURICo
   <text x="485" y="350" font-family="monospace" font-size="10" font-weight="500" fill="#7f1d1d" text-anchor="middle">OUT OF DATE</text>
 </svg>
 `)}`;
+

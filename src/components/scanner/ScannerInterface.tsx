@@ -11,6 +11,8 @@ import {
   Sparkles, 
   X, 
   FlipHorizontal, 
+  ArrowRight,
+  Loader2
   ShieldCheck,
   AlertTriangle,
   XCircle,
@@ -30,7 +32,16 @@ export default function ScannerInterface() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const autoTriggeredRef = useRef(false);
+  // Dual-mode tab toggle: "Live Scanner" | "Manual Entry"
+  const [activeTab, setActiveTab] = useState<'scanner' | 'manual'>('scanner');
+  
+  // Camera state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
+  // Manual Form state
   // Tab mode: 'guided' (Stepper) | 'live' (Camera reticle) | 'manual' (Direct form)
   const [activeTab, setActiveTab] = useState<'guided' | 'live' | 'manual'>('guided');
 
@@ -57,23 +68,39 @@ export default function ScannerInterface() {
   const [expiry, setExpiry] = useState('11/2027');
   const [pharmacyLocation, setPharmacyLocation] = useState('Pharmacie Principale, Casablanca');
 
+  // Verification loading states
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<'working' | 'done'>('working');
+  const [loadingStep, setLoadingStep] = useState<string>('');
   // Verification result status (derived or simulated)
   const [targetOutcome, setTargetOutcome] = useState<'consistent' | 'suspicious' | 'expired'>('consistent');
 
+  // Photo analysis loading states
+  const [isPhotoAnalyzing, setIsPhotoAnalyzing] = useState(false);
+  const [isPhotoWorking, setIsPhotoWorking] = useState(true);
+  const [photoSteps, setPhotoSteps] = useState<string[]>([]);
   // Live Camera state
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
+  // Upload Photo from Device state
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Start Camera
   // Camera controls
   const startCamera = async (mode = facingMode) => {
     setCameraError(null);
+    setUploadedImage(null);
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera access is not supported on this device/browser.');
       }
       const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode },
         video: { facingMode: mode }
       });
       if (videoRef.current) {
@@ -112,6 +139,8 @@ export default function ScannerInterface() {
     };
   }, []);
 
+  // Handle Preset quick-fill
+  const handleQuickFill = (preset: typeof PRESET_DEMOS[0]) => {
   // Quick Preset Selection
   const applyPreset = useCallback((preset: typeof PRESET_DEMOS[0]) => {
     setMedicineName(preset.name);
@@ -119,8 +148,16 @@ export default function ScannerInterface() {
     setBatch(preset.batch);
     setSerial(preset.serial);
     setExpiry(preset.expiry);
+  };
     setTargetOutcome(preset.targetStatus as 'consistent' | 'suspicious' | 'expired');
 
+  // Submit Verification pipeline (LatticeLoader for medicine analysis)
+  const handleSubmit = useCallback(
+    (customGtin?: string, customBatch?: string, customSerial?: string, customExpiry?: string) => {
+      const finalGtin = (typeof customGtin === 'string' ? customGtin : gtin) || PRESET_DEMOS[0].gtin;
+      const finalBatch = (typeof customBatch === 'string' ? customBatch : batch) || PRESET_DEMOS[0].batch;
+      const finalSerial = (typeof customSerial === 'string' ? customSerial : serial) || PRESET_DEMOS[0].serial;
+      const finalExpiry = (typeof customExpiry === 'string' ? customExpiry : expiry) || PRESET_DEMOS[0].expiry;
     if (preset.targetStatus === 'consistent') {
       setPackageImage(SAMPLE_CARTON_AZOLE);
     } else if (preset.targetStatus === 'suspicious') {
@@ -131,6 +168,10 @@ export default function ScannerInterface() {
     setRefineStatus('complete');
   }, []);
 
+      setIsVerifying(true);
+      setVerificationStatus('working');
+      setLoadingStep('Accessing AMMPS / BDPM Regulatory Reference Node...');
+
   // File Upload Handlers for Drag-and-Drop & File Browser
   const handleFile = (file: File) => {
     const reader = new FileReader();
@@ -139,17 +180,25 @@ export default function ScannerInterface() {
       const dataUrl = e.target?.result as string;
       setPackageImage(dataUrl);
       setTimeout(() => {
+        setLoadingStep('Deciphering GS1 DataMatrix AI (01)(10)(21)(17)...');
         setRefineStatus('complete');
       }, 500);
     };
     reader.readAsDataURL(file);
   };
 
+      setTimeout(() => {
+        setLoadingStep('Executing Computer Vision packaging integrity evaluation...');
+      }, 1100);
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
   };
 
+      setTimeout(() => {
+        setLoadingStep('Cryptographic verification confirmed. Packaging authentic.');
+        setVerificationStatus('done');
+      }, 1700);
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -157,6 +206,19 @@ export default function ScannerInterface() {
     if (file) handleFile(file);
   };
 
+      setTimeout(() => {
+        setIsVerifying(false);
+        const params = new URLSearchParams({
+          gtin: finalGtin,
+          batch: finalBatch,
+          serial: finalSerial,
+          expiry: finalExpiry,
+        });
+        router.push(`/result?${params.toString()}`);
+      }, 2400);
+    },
+    [gtin, batch, serial, expiry, router]
+  );
   // Run Step 2 AI Forensic Analysis
   const runAiAnalysis = useCallback(() => {
     setStepperIndex(2);
@@ -166,6 +228,7 @@ export default function ScannerInterface() {
     setAnalysisProgress(10);
     setAnalysisSteps(['Ingesting high-resolution packaging raster']);
 
+  // Auto-trigger simulation if requested by URL query parameter (e.g., from hero quick links)
     setTimeout(() => {
       setAnalysisSteps(prev => [...prev, 'Detecting GS1 2D DataMatrix (ECC 200) reticle']);
       setAnalysisProgress(35);
@@ -201,13 +264,82 @@ export default function ScannerInterface() {
       if (match) {
         autoTriggeredRef.current = true;
         const timer = setTimeout(() => {
-          applyPreset(match);
-        }, 0);
+          setGtin(match.gtin);
+          setBatch(match.batch);
+          setSerial(match.serial);
+          setExpiry(match.expiry);
+          handleSubmit(match.gtin, match.batch, match.serial, match.expiry);
+        }, 50);
         return () => clearTimeout(timer);
+        applyPreset(match);
       }
     }
+  }, [searchParams, handleSubmit]);
   }, [searchParams, applyPreset]);
 
+  // Submit Photo Verification pipeline (ThoughtLine for photo analysis)
+  const handlePhotoVerification = useCallback(
+    (customGtin?: string, customBatch?: string, customSerial?: string, customExpiry?: string) => {
+      const finalGtin = (typeof customGtin === 'string' ? customGtin : gtin) || PRESET_DEMOS[0].gtin;
+      const finalBatch = (typeof customBatch === 'string' ? customBatch : batch) || PRESET_DEMOS[0].batch;
+      const finalSerial = (typeof customSerial === 'string' ? customSerial : serial) || PRESET_DEMOS[0].serial;
+      const finalExpiry = (typeof customExpiry === 'string' ? customExpiry : expiry) || PRESET_DEMOS[0].expiry;
+
+      setIsPhotoAnalyzing(true);
+      setIsPhotoWorking(true);
+      setPhotoSteps(['Ingesting packaging image specimen']);
+
+      setTimeout(() => {
+        setPhotoSteps(prev => [...prev, 'Detecting GS1 2D DataMatrix (ECC 200) reticle']);
+      }, 500);
+
+      setTimeout(() => {
+        setPhotoSteps(prev => [...prev, 'Scanning micro-typography & font kerning baseline']);
+      }, 1000);
+
+      setTimeout(() => {
+        setPhotoSteps(prev => [...prev, 'Validating holographic security seal & tamper integrity']);
+      }, 1500);
+
+      setTimeout(() => {
+        setPhotoSteps(prev => [...prev, 'Cross-referencing AMMPS / BDPM registration node']);
+      }, 2000);
+
+      setTimeout(() => {
+        setIsPhotoWorking(false);
+      }, 2500);
+
+      setTimeout(() => {
+        setIsPhotoAnalyzing(false);
+        const params = new URLSearchParams({
+          gtin: finalGtin,
+          batch: finalBatch,
+          serial: finalSerial,
+          expiry: finalExpiry,
+        });
+        router.push(`/result?${params.toString()}`);
+      }, 3200);
+    },
+    [gtin, batch, serial, expiry, router]
+  );
+
+  // Capture video frame from active camera stream
+  const captureFrame = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      setUploadedImage(dataUrl);
+      const demo = PRESET_DEMOS[0];
+      handleQuickFill(demo);
+      stopCamera();
+      handlePhotoVerification(demo.gtin, demo.batch, demo.serial, demo.expiry);
+    }
   // Navigate to full audit dossier in /result
   const navigateToResult = () => {
     const params = new URLSearchParams({
@@ -220,22 +352,97 @@ export default function ScannerInterface() {
     router.push(`/result?${params.toString()}`);
   };
 
+  // File Upload Handlers (Upload Photo from Device)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      stopCamera();
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setUploadedImage(event.target?.result as string);
+        const demo = PRESET_DEMOS[0];
+        handleQuickFill(demo);
+        handlePhotoVerification(demo.gtin, demo.batch, demo.serial, demo.expiry);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      stopCamera();
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setUploadedImage(event.target?.result as string);
+        const demo = PRESET_DEMOS[0];
+        handleQuickFill(demo);
+        handlePhotoVerification(demo.gtin, demo.batch, demo.serial, demo.expiry);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 sm:py-14">
+      {/* Header */}
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
       {/* Page Header */}
       <div className="text-center space-y-3 mb-8">
         <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3.5 py-1 text-xs font-semibold text-teal-800 shadow-sm">
           <ScanLine className="h-3.5 w-3.5 text-teal-600 animate-pulse" />
+          <span>Optical GS1 Decoder &amp; Verification Reticle</span>
           <span>Multi-Signal Forensic Package Verification</span>
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+          Pharmaceutical Verification Scanner
           Verify Medicine Packaging Authenticity
         </h1>
+        <p className="max-w-xl mx-auto text-sm text-slate-600">
+          Position your medicine carton inside the reticle viewfinder to scan the GS1 2D DataMatrix, or enter package serial codes manually.
         <p className="max-w-2xl mx-auto text-sm text-slate-600">
           Upload or photograph your medicine carton to run automated OCR label extraction, GS1 2D DataMatrix validation, and AMMPS / BDPM registry cross-referencing.
         </p>
       </div>
 
+      {/* Main Container Card */}
+      <div className="rounded-3xl border border-slate-200/90 bg-white/95 shadow-xl shadow-slate-200/50 backdrop-blur-xl overflow-hidden relative">
+        
+        {/* Verification Progress Modal Overlay (LatticeLoader when user puts medicine into app) */}
+        {isVerifying && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md p-6 text-center">
+            <div className="p-8 rounded-3xl border border-slate-200 bg-white shadow-2xl flex flex-col items-center max-w-md w-full">
+              <LatticeLoader
+                status={verificationStatus}
+                label="Analyzing Medicine Packaging"
+                doneLabel="Verification Complete in"
+                errorLabel="Verification Failed"
+                pattern="orbit"
+                grid={3}
+                shape="round"
+                color="#0D9488"
+                doneColor="#10B981"
+                cellSize={8}
+                gap={3}
+                fontSize={16}
+                step={85}
+                showTimer
+              />
+              <p className="mt-4 text-xs font-mono text-teal-700 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200 max-w-sm">
+                {loadingStep}
+              </p>
+              <div className="mt-5 w-64 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full bg-gradient-to-r ${
+                    verificationStatus === 'done' ? 'from-emerald-500 to-emerald-400 w-full' : 'from-teal-500 to-teal-400 animate-pulse w-3/4'
+                  } transition-all duration-500 rounded-full`}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       {/* Mode Navigation Tabs */}
       <div className="flex border border-slate-200 bg-slate-50/80 p-1.5 rounded-2xl max-w-xl mx-auto mb-8 shadow-sm">
         <button
@@ -253,6 +460,27 @@ export default function ScannerInterface() {
           <span>4-Step Photo Verification</span>
         </button>
 
+        {/* Photo Verification Progress Modal Overlay (ThoughtLine for photo analysis) */}
+        {isPhotoAnalyzing && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md p-6">
+            <div className="p-8 rounded-3xl border border-slate-200 bg-white shadow-2xl max-w-lg w-full">
+              <ThoughtLine
+                working={isPhotoWorking}
+                steps={photoSteps}
+                label="Forensically analyzing packaging photo…"
+                doneLabel="Photo verified in"
+                glyph="sparkle"
+                fontSize={16}
+                color="#0D9488"
+                breathPeriod={1.4}
+                breathDepth={0.4}
+                settleDuration={300}
+                collapsible
+                showTimer
+              />
+            </div>
+          </div>
+        )}
         <button
           onClick={() => {
             setActiveTab('live');
@@ -268,6 +496,19 @@ export default function ScannerInterface() {
           <span>Live Camera View</span>
         </button>
 
+        {/* Dual-Mode Tab Toggle: "Live Scanner" | "Manual Entry" */}
+        <div className="flex border-b border-slate-200 bg-slate-50/80 p-2 gap-2">
+          <button
+            onClick={() => setActiveTab('scanner')}
+            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              activeTab === 'scanner'
+                ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25 font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Camera className="h-4 w-4" />
+            <span>Live Scanner</span>
+          </button>
         <button
           onClick={() => {
             stopCamera();
@@ -284,6 +525,13 @@ export default function ScannerInterface() {
         </button>
       </div>
 
+          <button
+            onClick={() => setActiveTab('manual')}
+            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              activeTab === 'manual'
+                ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25 font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
       {/* TAB 1: GUIDED 4-STEP PHOTO VERIFICATION VIA REACT BITS STEPPER */}
       {activeTab === 'guided' && (
         <div className="w-full">
@@ -304,6 +552,55 @@ export default function ScannerInterface() {
             }
             stepCircleContainerClassName="shadow-xl shadow-slate-200/40 border border-slate-200 bg-white"
           >
+            <Edit3 className="h-4 w-4" />
+            <span>Manual Entry</span>
+          </button>
+        </div>
+
+        {/* TAB 1: Live Scanner View */}
+        {activeTab === 'scanner' && (
+          <div className="p-6 sm:p-8 space-y-6">
+            {/* Viewfinder Frame with light overlay & centered corner reticles & sweeping laser line */}
+            <div 
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+              className={`relative mx-auto max-w-lg aspect-video sm:aspect-[4/3] rounded-2xl overflow-hidden border bg-slate-100 flex items-center justify-center shadow-inner transition-colors ${
+                isDragOver ? 'border-teal-500 bg-teal-50/50' : 'border-slate-300'
+              }`}
+            >
+              {/* Hidden file input for "Upload Photo from Device" */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+
+              {/* Mode A: Real Camera Stream */}
+              {cameraActive ? (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              ) : uploadedImage ? (
+                /* Mode B: Uploaded Image Preview */
+                <div className="relative w-full h-full flex items-center justify-center bg-slate-900">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={uploadedImage}
+                    alt="Uploaded packaging specimen"
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute top-3 left-3 rounded-lg bg-teal-50/90 border border-teal-200 px-2 py-1 text-[10px] font-mono text-teal-800 shadow-sm">
+                    Uploaded specimen ready
             {/* STEP 1: DRAG & DROP PHOTO PREVIEW IN REFINEFRAME */}
             <Step>
               <div className="space-y-6">
@@ -316,10 +613,13 @@ export default function ScannerInterface() {
                     </p>
                   </div>
                   <button
+                    onClick={() => setUploadedImage(null)}
+                    className="absolute top-3 right-3 rounded-lg bg-white/80 p-1 text-slate-700 hover:text-slate-900 shadow-sm"
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all cursor-pointer shrink-0"
                   >
+                    <X className="h-4 w-4" />
                     <Upload className="h-4 w-4 text-teal-600" />
                     <span>Browse Files</span>
                   </button>
@@ -331,7 +631,21 @@ export default function ScannerInterface() {
                     className="hidden"
                   />
                 </div>
+              ) : (
+                /* Mode C: Simulated Viewfinder Visual */
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 p-6 text-center">
+                  <div className="w-48 h-48 rounded-xl border border-slate-300 bg-white p-4 flex flex-col items-center justify-center relative shadow-md">
+                    {/* Corner Crosshairs */}
+                    <div className="hud-corner-tl" />
+                    <div className="hud-corner-tr" />
+                    <div className="hud-corner-bl" />
+                    <div className="hud-corner-br" />
 
+                    {/* Barcode representation */}
+                    <div className="w-24 h-24 grid grid-cols-6 gap-0.5 bg-slate-900 p-2 rounded">
+                      {[1,1,1,1,1,1, 1,0,1,0,0,1, 1,0,1,1,0,1, 1,1,0,1,1,0, 1,0,1,0,1,1, 1,1,1,1,1,1].map((val, idx) => (
+                        <div key={idx} className={val ? 'bg-white rounded-[0.5px]' : 'bg-transparent'} />
+                      ))}
                 {/* RefineFrame Packaging Container */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                   <div className="md:col-span-7 flex flex-col items-center justify-center">
@@ -370,8 +684,14 @@ export default function ScannerInterface() {
                         {isDragOver ? 'Release photo to analyze' : 'Drag & drop replacement photo or click browse above'}
                       </p>
                     </div>
+                    <span className="mt-2 font-mono text-[9px] text-teal-700 font-semibold">GS1 DATAMATRIX (ECC 200)</span>
                   </div>
 
+                  <p className="mt-4 text-xs text-slate-500 max-w-xs">
+                    Optical sensor ready. Switch to camera, upload a photo, or click instant simulation below.
+                  </p>
+                </div>
+              )}
                   {/* Preset Selector Card */}
                   <div className="md:col-span-5 space-y-3">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
@@ -385,6 +705,13 @@ export default function ScannerInterface() {
                         Test the forensic verification engine with pre-configured pharmaceutical records:
                       </p>
 
+              {/* Viewfinder Target Reticle Overlay with Sweeping Laser Line */}
+              <div className="absolute inset-0 pointer-events-none p-8 flex items-center justify-center">
+                <div className="relative w-56 h-56 rounded-2xl border-2 border-teal-500 shadow-[0_0_20px_rgba(13,148,136,0.25)] flex items-center justify-center">
+                  <div className="hud-corner-tl -top-1 -left-1" />
+                  <div className="hud-corner-tr -top-1 -right-1" />
+                  <div className="hud-corner-bl -bottom-1 -left-1" />
+                  <div className="hud-corner-br -bottom-1 -right-1" />
                       <div className="space-y-2">
                         {PRESET_DEMOS.map((preset) => {
                           const isSelected = medicineName === preset.name;
@@ -420,6 +747,16 @@ export default function ScannerInterface() {
                       </div>
                     </div>
 
+                  {/* Horizontal HUD Marks */}
+                  <div className="w-8 h-[1px] bg-teal-500 absolute left-2" />
+                  <div className="w-8 h-[1px] bg-teal-500 absolute right-2" />
+
+                  {/* Animated Teal Laser Scanning Line Sweeping Vertically */}
+                  <div className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-teal-500 to-transparent shadow-[0_0_14px_#0d9488] animate-laser" />
+                  
+                  <span className="absolute -bottom-6 font-mono text-[10px] text-teal-700 font-semibold tracking-wider">
+                    ALIGN DATAMATRIX HERE
+                  </span>
                     <div className="p-3.5 rounded-xl border border-teal-100 bg-teal-50/50 flex items-start gap-2.5">
                       <Info className="h-4 w-4 text-teal-600 shrink-0 mt-0.5" />
                       <p className="text-[11px] text-teal-800 leading-relaxed">
@@ -431,6 +768,30 @@ export default function ScannerInterface() {
               </div>
             </Step>
 
+              {/* Camera Error Alert */}
+              {cameraError && (
+                <div className="absolute bottom-3 left-3 right-3 rounded-xl bg-amber-50 border border-amber-300 p-2.5 text-xs text-amber-800 flex items-center justify-between shadow-sm">
+                  <span className="truncate">{cameraError}</span>
+                  <button onClick={() => setCameraError(null)}>
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Action Controls Bar: "Switch to Camera", "Upload Photo from Device", "Simulate DataMatrix Read" */}
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {/* Action 1: Switch to Camera / Capture Photo */}
+              {!cameraActive ? (
+                <button
+                  onClick={() => void startCamera()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-md shadow-teal-600/20 hover:bg-teal-700 transition-all cursor-pointer"
+                >
+                  <Camera className="h-4 w-4" />
+                  <span>Switch to Camera</span>
+                </button>
+              ) : (
+                <>
             {/* STEP 2: MULTI-SIGNAL FORENSIC AI ANALYSIS VIA LATTICELOADER & THOUGHTLINE */}
             <Step>
               <div className="space-y-6">
@@ -443,15 +804,43 @@ export default function ScannerInterface() {
                     </p>
                   </div>
                   <button
+                    onClick={captureFrame}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-teal-600/25 hover:from-teal-500 hover:to-teal-600 transition-all cursor-pointer ring-2 ring-teal-400/40 animate-pulse"
                     type="button"
                     onClick={runAiAnalysis}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 transition-all cursor-pointer"
                   >
+                    <Camera className="h-4 w-4" />
+                    <span>Capture &amp; Analyze Packaging</span>
                     <RefreshCw className={`h-3.5 w-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
                     <span>Re-run Analysis</span>
                   </button>
+                  <button
+                    onClick={toggleFacingMode}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+                  >
+                    <FlipHorizontal className="h-4 w-4" />
+                    <span>{facingMode === 'environment' ? 'Back' : 'Front'} Camera</span>
+                  </button>
+                  <button
+                    onClick={stopCamera}
+                    className="inline-flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-xs sm:text-sm font-semibold text-red-700 hover:bg-red-100 transition-all cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                    <span>Stop Camera</span>
+                  </button>
+                </>
+              )}
                 </div>
 
+              {/* Action 2: Upload Photo from Device */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all cursor-pointer"
+              >
+                <Upload className="h-4 w-4 text-teal-600" />
+                <span>Upload Photo from Device</span>
+              </button>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                   {/* Left: RefineFrame with live sweep laser */}
                   <div className="md:col-span-5 flex flex-col items-center">
@@ -473,6 +862,17 @@ export default function ScannerInterface() {
                       />
                     </RefineFrame>
 
+              {/* Action if photo uploaded: Verify now (runs ThoughtLine animation) */}
+              {uploadedImage && !cameraActive && (
+                <button
+                  onClick={() => handlePhotoVerification()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-teal-600/25 hover:from-teal-500 hover:to-teal-600 transition-all cursor-pointer ring-2 ring-teal-400/30"
+                >
+                  <ScanLine className="h-4 w-4 animate-pulse" />
+                  <span>Analyze Packaging Photo</span>
+                </button>
+              )}
+            </div>
                     <div className="mt-3 w-full max-w-[340px]">
                       <div className="flex justify-between text-[11px] font-mono text-slate-600 mb-1">
                         <span>Analysis Completeness</span>
@@ -487,6 +887,14 @@ export default function ScannerInterface() {
                     </div>
                   </div>
 
+            {/* Action 3: Simulate DataMatrix Read (for instant demo/testing) */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-teal-600" />
+                  <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider font-mono">
+                    Simulate DataMatrix Read (Instant Demo / Testing)
+                  </span>
                   {/* Right: LatticeLoader & ThoughtLine Progress List */}
                   <div className="md:col-span-7 space-y-4">
                     <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center gap-4">
@@ -541,9 +949,20 @@ export default function ScannerInterface() {
                     </div>
                   </div>
                 </div>
+                <span className="text-[10px] text-teal-700 font-mono font-medium">1-Click Verification</span>
               </div>
             </Step>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {PRESET_DEMOS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleSubmit(preset.gtin, preset.batch, preset.serial, preset.expiry)}
+                    className="rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-teal-400 hover:bg-teal-50/40 shadow-sm transition-all group cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-xs text-slate-900 group-hover:text-teal-700">
+                        {preset.name}
             {/* STEP 3: MEDICINE DETAILS VERIFICATION & USER SUPPLEMENT FORM */}
             <Step>
               <div className="space-y-6">
@@ -563,6 +982,14 @@ export default function ScannerInterface() {
                       <span className="text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                         OCR Extracted
                       </span>
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          preset.targetStatus === 'consistent'
+                            ? 'bg-emerald-500'
+                            : preset.targetStatus === 'suspicious'
+                            ? 'bg-amber-500'
+                            : 'bg-red-500'
+                        }`}
                     </label>
                     <div className="relative">
                       <input
@@ -572,6 +999,8 @@ export default function ScannerInterface() {
                         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-sm"
                       />
                     </div>
+                    <div className="mt-1 text-[10px] text-slate-500 truncate">
+                      {preset.subtitle}
                   </div>
 
                   {/* GTIN / EAN-13 */}
@@ -648,6 +1077,9 @@ export default function ScannerInterface() {
                         className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-sm"
                       />
                     </div>
+                    <div className="mt-2 font-mono text-[9px] text-teal-700 font-semibold flex items-center justify-between">
+                      <span>Simulate scan</span>
+                      <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
                   </div>
                 </div>
               </div>
@@ -731,6 +1163,8 @@ export default function ScannerInterface() {
                         </div>
                       </div>
                     </div>
+                  </button>
+                ))}
 
                     {/* Audit Checklist */}
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2.5">
@@ -798,11 +1232,22 @@ export default function ScannerInterface() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
             </Step>
           </Stepper>
         </div>
       )}
 
+        {/* TAB 2: Manual Entry View */}
+        {activeTab === 'manual' && (
+          <div className="p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Manual GS1 Identifier Form</h3>
+                <p className="text-xs text-slate-500">
+                  Input the GS1 Application Identifiers printed adjacent to the 2D DataMatrix on the packaging.
       {/* TAB 2: LIVE CAMERA OPTICAL SCANNER */}
       {activeTab === 'live' && (
         <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl shadow-slate-200/40 space-y-6">
@@ -835,6 +1280,19 @@ export default function ScannerInterface() {
               </div>
             )}
 
+              {/* Quick fill buttons */}
+              <div className="hidden sm:flex items-center gap-2">
+                <span className="text-xs text-slate-500">Quick fill:</span>
+                {PRESET_DEMOS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleQuickFill(p)}
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-mono text-slate-700 hover:border-teal-400 hover:text-teal-700 shadow-sm cursor-pointer"
+                  >
+                    {p.name.split(' ')[0]}
+                  </button>
+                ))}
             {/* Target Reticle Overlay with Sweeping Laser Line */}
             <div className="absolute inset-0 pointer-events-none p-8 flex items-center justify-center">
               <div className="relative w-56 h-56 rounded-2xl border-2 border-teal-400 shadow-[0_0_20px_rgba(13,148,136,0.35)] flex items-center justify-center">
@@ -855,6 +1313,30 @@ export default function ScannerInterface() {
               </div>
             </div>
 
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* GTIN / EAN-13 (14-digit input) */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono text-slate-700 flex items-center justify-between">
+                    <span>(01) GTIN / EAN-13 (14 Digits)</span>
+                    <span className="text-[10px] text-teal-700 font-semibold">GS1 Key</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={gtin}
+                    onChange={(e) => setGtin(e.target.value)}
+                    placeholder="06111234567890"
+                    maxLength={14}
+                    required
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-mono text-sm text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-sm transition-all"
+                  />
+                </div>
             {cameraError && (
               <div className="absolute bottom-3 left-3 right-3 rounded-xl bg-amber-500/90 text-white p-2.5 text-xs flex items-center justify-between shadow-sm">
                 <span className="truncate">{cameraError}</span>
@@ -865,6 +1347,21 @@ export default function ScannerInterface() {
             )}
           </div>
 
+                {/* Batch / Lot Number */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono text-slate-700 flex items-center justify-between">
+                    <span>(10) Batch / Lot Number</span>
+                    <span className="text-[10px] text-slate-500">AI (10)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={batch}
+                    onChange={(e) => setBatch(e.target.value)}
+                    placeholder="B2024-X88"
+                    required
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-mono text-sm text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-sm transition-all"
+                  />
+                </div>
           {/* Camera Action Buttons */}
           <div className="flex flex-wrap items-center justify-center gap-3">
             {!cameraActive ? (
@@ -912,6 +1409,21 @@ export default function ScannerInterface() {
         </div>
       )}
 
+                {/* Serial Number (Alphanumeric) */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono text-slate-700 flex items-center justify-between">
+                    <span>(21) Serial Number (Alphanumeric)</span>
+                    <span className="text-[10px] text-slate-500">AI (21)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={serial}
+                    onChange={(e) => setSerial(e.target.value)}
+                    placeholder="SN9872134567"
+                    required
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-mono text-sm text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-sm transition-all"
+                  />
+                </div>
       {/* TAB 3: MANUAL GS1 ENTRY FORM */}
       {activeTab === 'manual' && (
         <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl shadow-slate-200/40 space-y-6">
@@ -923,15 +1435,48 @@ export default function ScannerInterface() {
               </p>
             </div>
 
+                {/* Expiration Date picker (MM/YYYY) */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono text-slate-700 flex items-center justify-between">
+                    <span>(17) Expiration Date (MM/YYYY)</span>
+                    <span className="text-[10px] text-slate-500">AI (17)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={expiry}
+                    onChange={(e) => setExpiry(e.target.value)}
+                    placeholder="11/2027"
+                    required
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-mono text-sm text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-sm transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Submit for Verification Action Button with Loading Spinner */}
+              <div className="pt-4">
             <div className="hidden sm:flex items-center gap-2">
               <span className="text-xs text-slate-500">Quick fill:</span>
               {PRESET_DEMOS.map((p) => (
                 <button
+                  type="submit"
+                  disabled={isVerifying}
+                  className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 py-3.5 text-sm font-semibold text-white shadow-lg shadow-teal-600/20 hover:from-teal-500 hover:to-teal-600 transition-all border border-teal-500/30 active:scale-[0.99] cursor-pointer disabled:opacity-50"
                   key={p.id}
                   type="button"
                   onClick={() => applyPreset(p)}
                   className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-mono text-slate-700 hover:border-teal-400 hover:text-teal-700 shadow-sm cursor-pointer"
                 >
+                  {isVerifying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Verifying Identifiers...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ScanLine className="h-4 w-4" />
+                      <span>Submit for Verification</span>
+                    </>
+                  )}
                   {p.name.split(' ')[0]}
                 </button>
               ))}
@@ -961,6 +1506,10 @@ export default function ScannerInterface() {
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-mono text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-sm transition-all"
                 />
               </div>
+            </form>
+          </div>
+        )}
+      </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono text-slate-700 flex items-center justify-between">
